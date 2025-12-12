@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+
+{% block title %}Shopping Cart - BiblioTrack{% endblock %}
+
+{% block extra_head %}
+<style>
+    .cart-item {
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: white;
+    }
+    .book-image {
+        width: 80px;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 5px;
+    }
+    .quantity-input {
+        width: 80px;
+        text-align: center;
+    }
+    .price-summary {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+    }
+    .total-price {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+        <div class="row">
+            <div class="col-lg-8">
+                <h2 class="mb-4">
+                    <i class="fas fa-shopping-cart"></i> Shopping Cart
+                </h2>
+
+                {% if cart_items %}
+                    {% for item in cart_items %}
+                        <div class="cart-item" data-book-id="{{ item.book.id }}">
+                            <div class="row align-items-center">
+                                <div class="col-md-2">
+                                    {% if item.book.cover_image %}
+                                        <img src="{{ item.book.cover_image.url }}" alt="{{ item.book.title }}"
+                                             class="book-image">
+                                    {% else %}
+                                        <div class="bg-light d-flex align-items-center justify-content-center book-image">
+                                            <i class="fas fa-book fa-2x text-muted"></i>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <h5 class="mb-1">{{ item.book.title }}</h5>
+                                    <p class="text-muted mb-1">by {{ item.book.author }}</p>
+                                    <small class="text-muted">{{ item.book.genre }}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="input-group">
+                                        <button class="btn btn-outline-secondary btn-sm quantity-decrease" type="button"
+                                                data-book-id="{{ item.book.id }}">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                        <input type="number" class="form-control form-control-sm quantity-input"
+                                               value="{{ item.quantity }}" min="1" max="{{ item.book.stock_quantity }}"
+                                               data-book-id="{{ item.book.id }}">
+                                        <button class="btn btn-outline-secondary btn-sm quantity-increase" type="button"
+                                                data-book-id="{{ item.book.id }}">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <div class="item-price fw-bold">${{ item.total_price }}</div>
+                                    <small class="text-muted">${{ item.book.price }} each</small>
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <button class="btn btn-outline-danger btn-sm remove-item"
+                                            data-book-id="{{ item.book.id }}">
+                                        <i class="fas fa-trash"></i> Remove
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                        <h4>Your cart is empty</h4>
+                        <p class="text-muted">Add some books to get started!</p>
+                        <a href="{% url 'book_list' %}" class="btn btn-primary">
+                            <i class="fas fa-book"></i> Browse Books
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="col-lg-4">
+                {% if cart_items %}
+                    <div class="price-summary sticky-top">
+                        <h4 class="mb-3">Order Summary</h4>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Subtotal ({{ cart_items|length }} item{{ cart_items|pluralize }})</span>
+                            <span>${{ subtotal }}</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Shipping</span>
+                            <span>${{ shipping }}</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-3">
+                            <span>Tax</span>
+                            <span>${{ tax }}</span>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between mb-3">
+                            <strong>Total</strong>
+                            <strong class="total-price">${{ total }}</strong>
+                        </div>
+
+                        <a href="{% url 'checkout' %}" class="btn btn-success btn-lg w-100 mb-2">
+                            <i class="fas fa-credit-card"></i> Proceed to Checkout
+                        </a>
+
+                        <a href="{% url 'book_list' %}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-plus"></i> Continue Shopping
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Event delegation for quantity buttons and input changes
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('quantity-decrease') || e.target.closest('.quantity-decrease')) {
+            const button = e.target.classList.contains('quantity-decrease') ? e.target : e.target.closest('.quantity-decrease');
+            const bookId = button.dataset.bookId;
+            const input = document.querySelector(`.quantity-input[data-book-id="${bookId}"]`);
+            const newQuantity = parseInt(input.value) - 1;
+            if (newQuantity >= 1) {
+                updateQuantity(bookId, newQuantity);
+            }
+        } else if (e.target.classList.contains('quantity-increase') || e.target.closest('.quantity-increase')) {
+            const button = e.target.classList.contains('quantity-increase') ? e.target : e.target.closest('.quantity-increase');
+            const bookId = button.dataset.bookId;
+            const input = document.querySelector(`.quantity-input[data-book-id="${bookId}"]`);
+            const newQuantity = parseInt(input.value) + 1;
+            const maxStock = parseInt(input.max);
+            if (newQuantity <= maxStock) {
+                updateQuantity(bookId, newQuantity);
+            }
+        } else if (e.target.classList.contains('remove-item') || e.target.closest('.remove-item')) {
+            const button = e.target.classList.contains('remove-item') ? e.target : e.target.closest('.remove-item');
+            const bookId = button.dataset.bookId;
+            removeFromCart(bookId);
+        }
+    });
+
+    // Handle quantity input changes
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('quantity-input')) {
+            const bookId = e.target.dataset.bookId;
+            const quantity = parseInt(e.target.value);
+            if (quantity >= 1) {
+                updateQuantity(bookId, quantity);
+            }
+        }
+    });
+
+    async function updateQuantity(bookId, quantity) {
+        if (quantity < 1) return;
+
+        try {
+            const response = await fetch(`/orders/cart/update/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: new URLSearchParams({
+                    'quantity': quantity
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Update item price
+                const cartItem = document.querySelector(`[data-book-id="${bookId}"]`);
+                cartItem.querySelector('.item-price').textContent = `$${data.item_total.toFixed(2)}`;
+
+                // Update totals
+                document.querySelector('.price-summary .total-price').textContent = `$${data.total.toFixed(2)}`;
+
+                // Update subtotal (find the subtotal line)
+                const subtotalElement = document.querySelector('.price-summary .d-flex.justify-content-between.mb-2');
+                if (subtotalElement) {
+                    subtotalElement.children[1].textContent = `$${data.subtotal.toFixed(2)}`;
+                }
+
+                // Update tax
+                const taxElement = document.querySelector('.price-summary .d-flex.justify-content-between.mb-3');
+                if (taxElement) {
+                    taxElement.children[1].textContent = `$${data.tax.toFixed(2)}`;
+                }
+
+                // Update input value
+                const input = document.querySelector(`.quantity-input[data-book-id="${bookId}"]`);
+                input.value = quantity;
+            } else {
+                alert(data.error || 'Error updating quantity');
+            }
+        } catch (error) {
+            alert('Network error. Please try again.');
+        }
+    }
+
+    async function removeFromCart(bookId) {
+        if (!confirm('Remove this item from your cart?')) return;
+
+        try {
+            const response = await fetch(`/orders/cart/remove/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Remove item from DOM
+                const cartItem = document.querySelector(`[data-book-id="${bookId}"]`);
+                cartItem.remove();
+
+                // Update cart count in navbar if available
+                const cartBadge = document.querySelector('.navbar .fa-shopping-cart').nextElementSibling;
+                if (cartBadge) {
+                    cartBadge.textContent = data.cart_count;
+                }
+
+                // Reload page if cart is empty
+                if (data.cart_count === 0) {
+                    location.reload();
+                }
+            } else {
+                alert(data.error || 'Error removing item');
+            }
+        } catch (error) {
+            alert('Network error. Please try again.');
+        }
+    }
+</script>
+{% endblock %}

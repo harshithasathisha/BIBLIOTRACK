@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}BiblioTrack - Your Ultimate Bookstore{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="hero-content">
+        <h1>Welcome to BiblioTrack</h1>
+        <p>Discover millions of books, track your reading journey, and connect with fellow book lovers. Your personal literary companion awaits.</p>
+        <div class="flex" style="gap: var(--spacing-lg); justify-content: center; margin-top: var(--spacing-xl);">
+            <a href="{% url 'book_list' %}" class="btn btn-primary">
+                <i class="fas fa-search" style="margin-right: var(--spacing-xs);"></i>
+                Browse Books
+            </a>
+            <a href="#categories" class="btn btn-secondary">
+                <i class="fas fa-th-large" style="margin-right: var(--spacing-xs);"></i>
+                Shop by Category
+            </a>
+        </div>
+    </div>
+    <div class="hero-illustration"></div>
+</section>
+
+<!-- Categories Section -->
+<section class="categories" id="categories">
+    <div class="container">
+        <h2 class="text-center mb-4">Shop by Category</h2>
+        <div class="categories-grid">
+            <div class="category-card">
+                <div class="category-icon">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <h4>Fiction</h4>
+                <p>Explore imaginative worlds</p>
+            </div>
+            <div class="category-card">
+                <div class="category-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h4>Non-Fiction</h4>
+                <p>Learn and grow</p>
+            </div>
+            <div class="category-card">
+                <div class="category-icon">
+                    <i class="fas fa-atom"></i>
+                </div>
+                <h4>Science</h4>
+                <p>Discover the universe</p>
+            </div>
+            <div class="category-card">
+                <div class="category-icon">
+                    <i class="fas fa-history"></i>
+                </div>
+                <h4>History</h4>
+                <p>Journey through time</p>
+            </div>
+            <div class="category-card">
+                <div class="category-icon">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <h4>Biography</h4>
+                <p>Inspiring life stories</p>
+            </div>
+            <div class="category-card">
+                <div class="category-icon">
+                    <i class="fas fa-child"></i>
+                </div>
+                <h4>Children's</h4>
+                <p>Books for young minds</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Best Sellers Section -->
+<section class="featured-books" id="bestsellers">
+    <div class="container">
+        <h2 class="text-center mb-4">Best Sellers</h2>
+        <div class="books-carousel">
+            {% for book in featured_books|slice:":6" %}

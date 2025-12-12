@@ -1,0 +1,798 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ book.title }} - BiblioTrack{% endblock %}
+
+{% block extra_head %}
+<style>
+    .book-detail-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .book-cover-large {
+        max-width: 300px;
+        height: auto;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .rating-stars {
+        color: #ffc107;
+        font-size: 1.2rem;
+    }
+    .review-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    .similar-book-card {
+        transition: transform 0.2s;
+    }
+    .similar-book-card:hover {
+        transform: translateY(-5px);
+    }
+    .book-description {
+        line-height: 1.6;
+    }
+    .btn-crimson {
+        background: #D32F2F;
+        border: #D32F2F;
+        color: white;
+    }
+    .btn-crimson:hover {
+        background: #B71C1C;
+        border: #B71C1C;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container book-detail-container mt-4">
+    <div class="row">
+        <!-- Book Cover and Basic Info -->
+        <div class="col-lg-4 mb-4">
+            <div class="text-center">
+                {% if book.cover_image %}
+                    <img src="{{ book.cover_image.url }}" alt="{{ book.title }}" class="book-cover-large img-fluid">
+                {% else %}
+                    <div class="bg-light d-flex align-items-center justify-content-center book-cover-large" style="height: 400px; border-radius: 10px;">
+                        <i class="fas fa-book fa-5x text-muted"></i>
+                    </div>
+                {% endif %}
+                <div class="mt-3">
+                    {% if user.is_authenticated %}
+                        <button class="btn btn-success btn-lg me-2" onclick="addToCart({{ book.pk }})">
+                            <i class="fas fa-cart-plus"></i> Add to Cart
+                        </button>
+                        <button class="btn btn-outline-danger btn-lg" onclick="toggleWishlist({{ book.pk }})" id="wishlist-btn">
+                            <i class="fas fa-heart"></i> {% if in_wishlist %}Remove from{% else %}Add to{% endif %} Wishlist
+                        </button>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn btn-success btn-lg me-2">
+                            <i class="fas fa-cart-plus"></i> Add to Cart
+                        </a>
+                        <a href="{% url 'login' %}" class="btn btn-outline-danger btn-lg">
+                            <i class="fas fa-heart"></i> Add to Wishlist
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Book Details -->
+        <div class="col-lg-8">
+            <h1 class="mb-3">{{ book.title }}</h1>
+            <h4 class="text-muted mb-3">by {{ book.author }}</h4>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <p><strong>Genre:</strong> {{ book.genre|title }}</p>
+                    <p><strong>ISBN:</strong> {{ book.isbn|default:"Not available" }}</p>
+                    <p><strong>Pages:</strong> {{ book.page_count|default:"Not specified" }}</p>
+                    <p><strong>Language:</strong> {{ book.language }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Publisher:</strong> {{ book.publisher|default:"Not specified" }}</p>
+                    <p><strong>Publication Date:</strong> {{ book.publication_date|date:"M d, Y"|default:"Not specified" }}</p>
+                    <p><strong>Stock:</strong> {{ book.stock_quantity }} available</p>
+                    <h3 class="text-primary">${{ book.price }}</h3>
+                </div>
+            </div>
+
+            <!-- Rating -->
+            {% if book.average_rating > 0 %}
+                <div class="mb-4">
+                    <div class="rating-stars mb-2">
+                        {% for i in "12345"|make_list %}
+                            {% if forloop.counter <= book.average_rating %}
+                                <i class="fas fa-star"></i>
+                            {% else %}
+                                <i class="far fa-star"></i>
+                            {% endif %}
+                        {% endfor %}
+                        <span class="ms-2">{{ book.average_rating|floatformat:1 }} out of 5</span>
+                        <small class="text-muted">({{ book.total_ratings }} reviews)</small>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Description -->
+            {% if book.description %}
+                <div class="mb-4">
+                    <h4>Description</h4>
+                    <p class="book-description">{{ book.description }}</p>
+                </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="mb-4">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'book_club_chat' book.pk %}" class="btn btn-outline-info me-2">
+                        <i class="fas fa-comments"></i> Join Book Club
+                    </a>
+                    <a href="{% url 'recommendations' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-lightbulb"></i> Get Recommendations
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Reviews Section -->
+    {% if reviews %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="mb-4">Reviews</h3>
+                {% for review in reviews %}
+                    <div class="review-card p-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ review.user.username }}</strong>
+                                <div class="rating-stars mt-1">
+                                    {% for i in "12345"|make_list %}
+                                        {% if forloop.counter <= review.rating %}
+                                            <i class="fas fa-star"></i>
+                                        {% else %}
+                                            <i class="far fa-star"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <small class="text-muted">{{ review.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        {% if review.comment %}
+                            <p class="mt-2 mb-0">{{ review.comment }}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Add Review Form -->
+    {% if user.is_authenticated %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <h4>Add Your Review</h4>
+                <form method="post" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_review">
+                    <div class="mb-3">
+                        <label class="form-label">Rating</label>
+                        <select name="rating" class="form-select" required>
+                            <option value="">Select rating</option>
+                            <option value="5">5 Stars</option>
+                            <option value="4">4 Stars</option>
+                            <option value="3">3 Stars</option>
+                            <option value="2">2 Stars</option>
+                            <option value="1">1 Star</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Review (optional)</label>
+                        <textarea name="comment" class="form-control" rows="3" placeholder="Share your thoughts about this book..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-crimson">Submit Review</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Similar Books -->
+    {% if similar_books %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="mb-4">Similar Books</h3>
+                <div class="row">
+                    {% for similar_book in similar_books %}
+                        <div class="col-md-3 col-sm-6 mb-4">
+                            <div class="card similar-book-card h-100">
+                                {% if similar_book.cover_image %}
+                                    <img src="{{ similar_book.cover_image.url }}" class="card-img-top" style="height: 200px; object-fit: cover;" alt="{{ similar_book.title }}">
+                                {% else %}
+                                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                                        <i class="fas fa-book fa-2x text-muted"></i>
+                                    </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ similar_book.title }}</h6>
+                                    <p class="card-text text-muted">by {{ similar_book.author }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-primary">${{ similar_book.price }}</span>
+                                        <a href="{% url 'book_detail' similar_book.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function addToCart(bookId) {
+        try {
+            const response = await fetch(`/orders/add-to-cart/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert('Book added to cart!', 'success');
+            } else {
+                showAlert(data.error || 'Error adding to cart', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+
+    async function toggleWishlist(bookId) {
+        try {
+            const response = await fetch(`/books/toggle-wishlist/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const btn = document.getElementById('wishlist-btn');
+                const icon = btn.querySelector('i');
+                if (data.in_wishlist) {
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Remove from Wishlist';
+                    btn.classList.remove('btn-outline-danger');
+                    btn.classList.add('btn-danger');
+                } else {
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Add to Wishlist';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-outline-danger');
+                }
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error updating wishlist', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
+    }
+</script>
+{% endblock %}
+=======
+                        <button class="btn btn-outline-danger btn-lg" onclick="toggleWishlist({{ book.pk }})" id="wishlist-btn">
+                            <i class="fas fa-heart"></i> {% if in_wishlist %}Remove from{% else %}Add to{% endif %} Wishlist
+                        </button>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn btn-success btn-lg me-2">
+                            <i class="fas fa-cart-plus"></i> Add to Cart
+                        </a>
+                        <a href="{% url 'login' %}" class="btn btn-outline-danger btn-lg">
+                            <i class="fas fa-heart"></i> Add to Wishlist
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Book Details -->
+        <div class="col-lg-8">
+            <h1 class="mb-3">{{ book.title }}</h1>
+            <h4 class="text-muted mb-3">by {{ book.author }}</h4>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <p><strong>Genre:</strong> {{ book.genre|title }}</p>
+                    <p><strong>ISBN:</strong> {{ book.isbn|default:"Not available" }}</p>
+                    <p><strong>Pages:</strong> {{ book.page_count|default:"Not specified" }}</p>
+                    <p><strong>Language:</strong> {{ book.language }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Publisher:</strong> {{ book.publisher|default:"Not specified" }}</p>
+                    <p><strong>Publication Date:</strong> {{ book.publication_date|date:"M d, Y"|default:"Not specified" }}</p>
+                    <p><strong>Stock:</strong> {{ book.stock_quantity }} available</p>
+                    <h3 class="text-primary">${{ book.price }}</h3>
+                </div>
+            </div>
+
+            <!-- Rating -->
+            {% if book.average_rating > 0 %}
+                <div class="mb-4">
+                    <div class="rating-stars mb-2">
+                        {% for i in "12345"|make_list %}
+                            {% if forloop.counter <= book.average_rating %}
+                                <i class="fas fa-star"></i>
+                            {% else %}
+                                <i class="far fa-star"></i>
+                            {% endif %}
+                        {% endfor %}
+                        <span class="ms-2">{{ book.average_rating|floatformat:1 }} out of 5</span>
+                        <small class="text-muted">({{ book.total_ratings }} reviews)</small>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Description -->
+            {% if book.description %}
+                <div class="mb-4">
+                    <h4>Description</h4>
+                    <p class="book-description">{{ book.description }}</p>
+                </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="mb-4">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'book_club_chat' book.pk %}" class="btn btn-outline-info me-2">
+                        <i class="fas fa-comments"></i> Join Book Club
+                    </a>
+                    <a href="{% url 'recommendations' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-lightbulb"></i> Get Recommendations
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Reviews Section -->
+    {% if reviews %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="mb-4">Reviews</h3>
+                {% for review in reviews %}
+                    <div class="review-card p-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ review.user.username }}</strong>
+                                <div class="rating-stars mt-1">
+                                    {% for i in "12345"|make_list %}
+                                        {% if forloop.counter <= review.rating %}
+                                            <i class="fas fa-star"></i>
+                                        {% else %}
+                                            <i class="far fa-star"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <small class="text-muted">{{ review.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        {% if review.comment %}
+                            <p class="mt-2 mb-0">{{ review.comment }}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Add Review Form -->
+    {% if user.is_authenticated %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <h4>Add Your Review</h4>
+                <form method="post" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_review">
+                    <div class="mb-3">
+                        <label class="form-label">Rating</label>
+                        <select name="rating" class="form-select" required>
+                            <option value="">Select rating</option>
+                            <option value="5">5 Stars</option>
+                            <option value="4">4 Stars</option>
+                            <option value="3">3 Stars</option>
+                            <option value="2">2 Stars</option>
+                            <option value="1">1 Star</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Review (optional)</label>
+                        <textarea name="comment" class="form-control" rows="3" placeholder="Share your thoughts about this book..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-crimson">Submit Review</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Similar Books -->
+    {% if similar_books %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="mb-4">Similar Books</h3>
+                <div class="row">
+                    {% for similar_book in similar_books %}
+                        <div class="col-md-3 col-sm-6 mb-4">
+                            <div class="card similar-book-card h-100">
+                                {% if similar_book.cover_image %}
+                                    <img src="{{ similar_book.cover_image.url }}" class="card-img-top" style="height: 200px; object-fit: cover;" alt="{{ similar_book.title }}">
+                                {% else %}
+                                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                                        <i class="fas fa-book fa-2x text-muted"></i>
+                                    </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ similar_book.title }}</h6>
+                                    <p class="card-text text-muted">by {{ similar_book.author }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-primary">${{ similar_book.price }}</span>
+                                        <a href="{% url 'book_detail' similar_book.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function addToCart(bookId) {
+        try {
+            const response = await fetch(`/orders/add-to-cart/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert('Book added to cart!', 'success');
+            } else {
+                showAlert(data.error || 'Error adding to cart', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+
+    async function toggleWishlist(bookId) {
+        try {
+            const response = await fetch(`/books/toggle-wishlist/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const btn = document.getElementById('wishlist-btn');
+                const icon = btn.querySelector('i');
+                if (data.in_wishlist) {
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Remove from Wishlist';
+                    btn.classList.remove('btn-outline-danger');
+                    btn.classList.add('btn-danger');
+                } else {
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Add to Wishlist';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-outline-danger');
+                }
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error updating wishlist', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
+    }
+</script>
+{% endblock %}
+                    {% else %}
+                        <a href="{% url 'login' %}" class="btn btn-success btn-lg me-2">
+                            <i class="fas fa-cart-plus"></i> Add to Cart
+                        </a>
+                        <a href="{% url 'login' %}" class="btn btn-outline-danger btn-lg">
+                            <i class="fas fa-heart"></i> Add to Wishlist
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Book Details -->
+        <div class="col-lg-8">
+            <h1 class="mb-3">{{ book.title }}</h1>
+            <h4 class="text-muted mb-3">by {{ book.author }}</h4>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <p><strong>Genre:</strong> {{ book.genre|title }}</p>
+                    <p><strong>ISBN:</strong> {{ book.isbn|default:"Not available" }}</p>
+                    <p><strong>Pages:</strong> {{ book.page_count|default:"Not specified" }}</p>
+                    <p><strong>Language:</strong> {{ book.language }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Publisher:</strong> {{ book.publisher|default:"Not specified" }}</p>
+                    <p><strong>Publication Date:</strong> {{ book.publication_date|date:"M d, Y"|default:"Not specified" }}</p>
+                    <p><strong>Stock:</strong> {{ book.stock_quantity }} available</p>
+                    <h3 class="text-primary">${{ book.price }}</h3>
+                </div>
+            </div>
+
+            <!-- Rating -->
+            {% if book.average_rating > 0 %}
+                <div class="mb-4">
+                    <div class="rating-stars mb-2">
+                        {% for i in "12345"|make_list %}
+                            {% if forloop.counter <= book.average_rating %}
+                                <i class="fas fa-star"></i>
+                            {% else %}
+                                <i class="far fa-star"></i>
+                            {% endif %}
+                        {% endfor %}
+                        <span class="ms-2">{{ book.average_rating|floatformat:1 }} out of 5</span>
+                        <small class="text-muted">({{ book.total_ratings }} reviews)</small>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Description -->
+            {% if book.description %}
+                <div class="mb-4">
+                    <h4>Description</h4>
+                    <p class="book-description">{{ book.description }}</p>
+                </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="mb-4">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'book_club_chat' book.pk %}" class="btn btn-outline-info me-2">
+                        <i class="fas fa-comments"></i> Join Book Club
+                    </a>
+                    <a href="{% url 'recommendations' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-lightbulb"></i> Get Recommendations
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Reviews Section -->
+    {% if reviews %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="mb-4">Reviews</h3>
+                {% for review in reviews %}
+                    <div class="review-card p-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ review.user.username }}</strong>
+                                <div class="rating-stars mt-1">
+                                    {% for i in "12345"|make_list %}
+                                        {% if forloop.counter <= review.rating %}
+                                            <i class="fas fa-star"></i>
+                                        {% else %}
+                                            <i class="far fa-star"></i>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <small class="text-muted">{{ review.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        {% if review.comment %}
+                            <p class="mt-2 mb-0">{{ review.comment }}</p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Add Review Form -->
+    {% if user.is_authenticated %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <h4>Add Your Review</h4>
+                <form method="post" class="mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_review">
+                    <div class="mb-3">
+                        <label class="form-label">Rating</label>
+                        <select name="rating" class="form-select" required>
+                            <option value="">Select rating</option>
+                            <option value="5">5 Stars</option>
+                            <option value="4">4 Stars</option>
+                            <option value="3">3 Stars</option>
+                            <option value="2">2 Stars</option>
+                            <option value="1">1 Star</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Review (optional)</label>
+                        <textarea name="comment" class="form-control" rows="3" placeholder="Share your thoughts about this book..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-crimson">Submit Review</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Similar Books -->
+    {% if similar_books %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3 class="mb-4">Similar Books</h3>
+                <div class="row">
+                    {% for similar_book in similar_books %}
+                        <div class="col-md-3 col-sm-6 mb-4">
+                            <div class="card similar-book-card h-100">
+                                {% if similar_book.cover_image %}
+                                    <img src="{{ similar_book.cover_image.url }}" class="card-img-top" style="height: 200px; object-fit: cover;" alt="{{ similar_book.title }}">
+                                {% else %}
+                                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                                        <i class="fas fa-book fa-2x text-muted"></i>
+                                    </div>
+                                {% endif %}
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ similar_book.title }}</h6>
+                                    <p class="card-text text-muted">by {{ similar_book.author }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-primary">${{ similar_book.price }}</span>
+                                        <a href="{% url 'book_detail' similar_book.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function addToCart(bookId) {
+        try {
+            const response = await fetch(`/orders/add-to-cart/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showAlert('Book added to cart!', 'success');
+            } else {
+                showAlert(data.error || 'Error adding to cart', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+
+    async function toggleWishlist(bookId) {
+        try {
+            const response = await fetch(`/books/toggle-wishlist/${bookId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const btn = document.getElementById('wishlist-btn');
+                const icon = btn.querySelector('i');
+                if (data.in_wishlist) {
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Remove from Wishlist';
+                    btn.classList.remove('btn-outline-danger');
+                    btn.classList.add('btn-danger');
+                } else {
+                    btn.innerHTML = '<i class="fas fa-heart"></i> Add to Wishlist';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-outline-danger');
+                }
+                showAlert(data.message, 'success');
+            } else {
+                showAlert(data.error || 'Error updating wishlist', 'danger');
+            }
+        } catch (error) {
+            showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
+    }
+</script>
+{% endblock %}

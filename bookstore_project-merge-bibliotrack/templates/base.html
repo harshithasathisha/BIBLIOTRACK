@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% load static %}
+    <title>{% block title %}BiblioTrack - Your Ultimate Bookstore{% endblock %}</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="{% static 'css/bookswagon.css' %}" rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body data-theme="light">
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <!-- Logo -->
+            <a class="logo" href="{% url 'book_list' %}">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <span style="font-weight: 700; font-size: 1.5rem;">BiblioTrack</span>
+            </a>
+
+            <!-- Navigation Links -->
+            <ul class="nav-links">
+                <li><a href="{% url 'book_list' %}">Home</a></li>
+                <li><a href="#categories">Categories</a></li>
+                <li><a href="#bestsellers">Best Sellers</a></li>
+                <li><a href="#new-arrivals">New Arrivals</a></li>
+                <li><a href="#offers">Offers</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <input type="text" class="search-input" placeholder="Search by Title, Author, or ISBN">
+                <button class="search-btn">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+
+            <!-- User Actions -->
+            <div class="user-actions">
+                {% if user.is_authenticated %}
+                <a href="{% url 'wishlist' %}" class="icon-btn" title="Wishlist">
+                    <i class="fas fa-heart"></i>
+                </a>
+                <a href="{% url 'cart' %}" class="icon-btn" title="Cart">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="cart-count">0</span>
+                </a>
+                <div class="dropdown">
+                    <button class="icon-btn dropdown-toggle" data-bs-toggle="dropdown" title="Profile">
+                        <i class="fas fa-user"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}">My Profile</a></li>
+                        <li><a class="dropdown-item" href="{% url 'order_history' %}">My Orders</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'logout' %}">Logout</a></li>
+                    </ul>
+                </div>
+                {% else %}
+                <a href="{% url 'login' %}" class="btn btn-outline-primary">Login</a>
+                <a href="{% url 'register' %}" class="btn btn-primary">Sign Up</a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Floating Chatbot Button -->
+    {% if user.is_authenticated %}
+    <div class="position-fixed bottom-0 end-0 p-4" style="z-index: 1050;">
+        <button class="btn btn-primary rounded-circle shadow-lg" style="width: 60px; height: 60px;" data-bs-toggle="modal" data-bs-target="#chatbotModal">
+            <i class="fas fa-robot fa-lg"></i>
+        </button>
+    </div>
+    {% endif %}
+
+    <!-- Chatbot Modal -->
+    <div class="modal fade" id="chatbotModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-end modal-lg">
+            <div class="modal-content glass border-0">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title text-gradient">
+                        <i class="fas fa-robot me-2"></i>BiblioBot
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="height: 400px; overflow-y: auto;">
+                    <div id="chat-messages">
+                        <div class="d-flex mb-3">
+                            <div class="bg-primary text-white rounded p-3 me-3" style="max-width: 70%;">
+                                <small class="text-white-50">BiblioBot</small><br>
+                                Hello! I'm your reading assistant. Ask me for book recommendations, find similar books, or get help with anything reading-related!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="chatbot-input" placeholder="Ask me anything about books...">
+                        <button class="btn btn-primary" type="button" id="send-message">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script>
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Animate elements on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-slide-up');
+                }
+            });
+        }, observerOptions);
+
+        // Observe all cards and sections
+        document.querySelectorAll('.card, .glass-card, section').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Chatbot functionality (basic implementation)
+        if (document.body.dataset.authenticated === 'true') {
+            document.getElementById('send-message').addEventListener('click', function() {
+                const input = document.getElementById('chatbot-input');
+                const message = input.value.trim();
+
+                if (message) {
+                    // Add user message
+                    const chatMessages = document.getElementById('chat-messages');
+                    chatMessages.innerHTML += '<div class="d-flex mb-3 justify-content-end"><div class="bg-secondary text-white rounded p-3 ms-3" style="max-width: 70%;"><small class="text-white-50">You</small><br>' + message + '</div></div>';
+
+                    // Simulate bot response
+                    setTimeout(() => {
+                        chatMessages.innerHTML += '<div class="d-flex mb-3"><div class="bg-primary text-white rounded p-3 me-3" style="max-width: 70%;"><small class="text-white-50">BiblioBot</small><br>That\'s a great question! Let me help you find some amazing books. What genre are you interested in?</div></div>';
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }, 1000);
+
+                    input.value = '';
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            });
+
+            // Enter key support for chatbot
+            document.getElementById('chatbot-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    document.getElementById('send-message').click();
+                }
+            });
+        }
+
+        // Add loading animation to buttons
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.form && !this.classList.contains('btn-outline-primary')) {
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Loading...';
+                    this.disabled = true;
+                }
+            });
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Club - {{ book.title }} - BiblioTrack</title>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 70%;
+        }
+        .message.own {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+        }
+        .message.other {
+            background: white;
+            border: 1px solid #dee2e6;
+        }
+        .message-header {
+            font-size: 0.8em;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        .chat-input-container {
+            margin-top: 20px;
+        }
+        .book-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'book_list' %}">
+                <i class="fas fa-book"></i> BiblioTrack
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{% url 'book_detail' book.pk %}">
+                    <i class="fas fa-arrow-left"></i> Back to Book
+                </a>
+                <a class="nav-link" href="{% url 'book_comments' book.pk %}">
+                    <i class="fas fa-comments"></i> Comments
+                </a>
+                {% if user.is_authenticated %}
+                    <a class="nav-link" href="{% url 'wishlist' %}">
+                        <i class="fas fa-heart"></i> Wishlist
+                    </a>
+                    <a class="nav-link" href="{% url 'profile' %}">
+                        <i class="fas fa-user"></i> {{ user.username }}
+                    </a>
+                    <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+                {% else %}
+                    <a class="nav-link" href="{% url 'login' %}">Login</a>
+                    <a class="nav-link" href="{% url 'register' %}">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="book-info">
+            <div class="row">
+                <div class="col-md-2">
+                    {% if book.cover_image %}
+                        <img src="{{ book.cover_image.url }}" class="img-fluid rounded" alt="{{ book.title }}">
+                    {% else %}
+                        <div class="bg-light d-flex align-items-center justify-content-center rounded" style="height: 100px;">
+                            <i class="fas fa-book fa-2x text-muted"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-10">
+                    <h3>{{ book.title }}</h3>
+                    <h5 class="text-muted">by {{ book.author }}</h5>
+                    <p class="mb-0">{{ book.description|truncatechars:200 }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-messages" id="chat-messages">
+                {% for message in messages %}
+                    <div class="message {% if message.user == user %}own{% else %}other{% endif %}">
+                        <div class="message-header">
+                            <strong>{{ message.user.username }}</strong>
+                            <small>{{ message.timestamp|date:"M d, H:i" }}</small>
+                        </div>
+                        <div>{{ message.content }}</div>
+                    </div>
+                {% empty %}
+                    <div class="text-center text-muted mt-5">
+                        <i class="fas fa-comments fa-3x mb-3"></i>
+                        <h5>No messages yet</h5>
+                        <p>Be the first to start the discussion!</p>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="chat-input-container">
+                <form id="chat-form" method="post">
+                    {% csrf_token %}
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="message-input" placeholder="Type your message..." required>
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-paper-plane"></i> Send
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // WebSocket connection
+        const bookId = {{ book.pk }};
+        const chatSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/chat/' + bookId + '/'
+        );
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            addMessage(data.user, data.message, new Date().toLocaleTimeString(), data.user === '{{ user.username }}');
+        };
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+
+        // Handle form submission
+        document.getElementById('chat-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+
+            if (message) {
+                chatSocket.send(JSON.stringify({
+                    'message': message
+                }));
+                messageInput.value = '';
+            }
+        });
+
+        function addMessage(username, content, timestamp, isOwn) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isOwn ? 'own' : 'other'}`;
+
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <strong>${username}</strong>
+                    <small>${timestamp}</small>
+                </div>
+                <div>${content}</div>
+            `;
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Auto-scroll to bottom on load
+        document.addEventListener('DOMContentLoaded', function() {
+            const messagesContainer = document.getElementById('chat-messages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
+    </script>
+</body>
+</html>

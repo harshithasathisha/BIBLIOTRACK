@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order #{{ order.order_number }} - BiblioTrack</title>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{% static 'css/readsphere.css' %}" rel="stylesheet">
+    <style>
+        .order-item {
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: white;
+        }
+        .book-image {
+            width: 80px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+        .status-badge {
+            font-size: 0.9rem;
+        }
+        .status-pending {
+            background: #ffc107;
+            color: #212529;
+        }
+        .status-confirmed {
+            background: #007bff;
+            color: white;
+        }
+        .status-shipped {
+            background: #17a2b8;
+            color: white;
+        }
+        .status-delivered {
+            background: #28a745;
+            color: white;
+        }
+        .status-cancelled {
+            background: #dc3545;
+            color: white;
+        }
+        .order-summary {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'book_list' %}">
+                <i class="fas fa-book"></i> BiblioTrack
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{% url 'book_list' %}">Books</a>
+                <a class="nav-link" href="{% url 'order_history' %}">
+                    <i class="fas fa-history"></i> Orders
+                </a>
+                {% if user.is_authenticated %}
+                    <a class="nav-link" href="{% url 'profile' %}">
+                        <i class="fas fa-user"></i> {{ user.username }}
+                    </a>
+                    <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'order_history' %}">Order History</a>
+                        </li>
+                        <li class="breadcrumb-item active">Order #{{ order.order_number }}</li>
+                    </ol>
+                </nav>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h4 class="mb-0">Order #{{ order.order_number }}</h4>
+                                <small class="text-muted">Placed on {{ order.created_at|date:"F d, Y" }} at {{ order.created_at|time:"H:i" }}</small>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="status-badge badge status-{{ order.status }}">
+                                    {{ order.get_status_display }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Order Items -->
+                        <h5 class="mb-3">Order Items</h5>
+                        {% for item in order_items %}
+                            <div class="order-item">
+                                <div class="row align-items-center">
+                                    <div class="col-md-2">
+                                        {% if item.book.cover_image %}
+                                            <img src="{{ item.book.cover_image.url }}" alt="{{ item.book.title }}"
+                                                 class="book-image">
+                                        {% else %}
+                                            <div class="bg-light d-flex align-items-center justify-content-center book-image">
+                                                <i class="fas fa-book fa-2x text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="mb-1">{{ item.book.title }}</h6>
+                                        <p class="text-muted mb-1">by {{ item.book.author }}</p>
+                                        <small class="text-muted">{{ item.book.genre }}</small>
+                                    </div>
+                                    <div class="col-md-2 text-center">
+                                        <div>Qty: {{ item.quantity }}</div>
+                                        <small class="text-muted">${{ item.price }} each</small>
+                                    </div>
+                                    <div class="col-md-2 text-end">
+                                        <div class="fw-bold">${{ item.total_price }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+
+                        <hr>
+
+                        <!-- Order Summary -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5 class="mb-3">Shipping Address</h5>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <p class="mb-0" style="white-space: pre-line;">{{ order.shipping_address }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="order-summary">
+                                    <h5 class="mb-3">Order Summary</h5>
+
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Subtotal ({{ order_items|length }} item{{ order_items|pluralize }})</span>
+                                        <span>${{ order.total_amount|add:"0"|floatformat:2 }}</span>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Shipping</span>
+                                        <span>$5.00</span>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between mb-3">
+                                        <span>Tax</span>
+                                        <span>${{ order.total_amount|mul:0.08|floatformat:2 }}</span>
+                                    </div>
+
+                                    <hr>
+
+                                    <div class="d-flex justify-content-between">
+                                        <strong>Total</strong>
+                                        <strong class="text-success">${{ order.total_amount }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Info -->
+                        {% if order.payment_id %}
+                            <div class="mt-4">
+                                <h5>Payment Information</h5>
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle"></i>
+                                    Payment completed successfully (ID: {{ order.payment_id }})
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <a href="{% url 'order_history' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> Back to Order History
+                    </a>
+                    <a href="{% url 'book_list' %}" class="btn btn-primary ms-2">
+                        <i class="fas fa-book"></i> Continue Shopping
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

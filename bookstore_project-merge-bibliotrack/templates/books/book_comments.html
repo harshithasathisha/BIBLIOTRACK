@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comments - {{ book.title }} - BiblioTrack</title>
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .comment-card {
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            padding: 15px;
+        }
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .comment-actions {
+            display: flex;
+            gap: 15px;
+            font-size: 0.9rem;
+        }
+        .reply-form {
+            margin-top: 10px;
+            margin-left: 30px;
+        }
+        .replies {
+            margin-left: 30px;
+            border-left: 2px solid #e9ecef;
+            padding-left: 15px;
+        }
+        .like-btn {
+            border: none;
+            background: none;
+            color: #6c757d;
+            cursor: pointer;
+        }
+        .like-btn.liked {
+            color: #dc3545;
+        }
+        .book-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'book_list' %}">
+                <i class="fas fa-book"></i> BiblioTrack
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{% url 'book_list' %}">Books</a>
+                <a class="nav-link" href="{% url 'recommendations' %}">Recommendations</a>
+                <a class="nav-link" href="{% url 'wishlist' %}">
+                    <i class="fas fa-heart"></i> Wishlist
+                </a>
+                {% if user.is_authenticated %}
+                    <a class="nav-link" href="{% url 'profile' %}">
+                        <i class="fas fa-user"></i> {{ user.username }}
+                    </a>
+                    <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+                {% else %}
+                    <a class="nav-link" href="{% url 'login' %}">Login</a>
+                    <a class="nav-link" href="{% url 'register' %}">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <!-- Book Info -->
+                <div class="book-info">
+                    <div class="row">
+                        <div class="col-md-3">
+                            {% if book.cover_image %}
+                                <img src="{{ book.cover_image.url }}" alt="{{ book.title }}" class="img-fluid rounded">
+                            {% else %}
+                                <div class="bg-light d-flex align-items-center justify-content-center" style="height: 200px; border-radius: 5px;">
+                                    <i class="fas fa-book fa-3x text-muted"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <h2>{{ book.title }}</h2>
+                            <p class="text-muted mb-1">by {{ book.author }}</p>
+                            <p class="mb-2">{{ book.description|truncatechars:200 }}</p>
+                            <div class="d-flex gap-3">
+                                <a href="{% url 'book_detail' book.pk %}" class="btn btn-primary btn-sm">View Details</a>
+                                <a href="{% url 'book_club_chat' book.pk %}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-comments"></i> Book Club Chat
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Comment Form -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Share Your Thoughts</h5>
+                        <form id="commentForm">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <textarea class="form-control" id="commentContent" rows="3"
+                                          placeholder="What did you think of this book?" maxlength="1000" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="submitComment">
+                                <i class="fas fa-paper-plane"></i> Post Comment
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Comments Section -->
+                <div id="commentsSection">
+                    {% for comment in comments %}
+                        <div class="comment-card" data-comment-id="{{ comment.id }}">
+                            <div class="comment-header">
+                                <div>
+                                    <strong>{{ comment.user.username }}</strong>
+                                    <small class="text-muted ms-2">{{ comment.created_at|timesince }} ago</small>
+                                </div>
+                                <div class="comment-actions">
+                                    <button class="like-btn {% if user in comment.likes.all %}liked{% endif %}"
+                                            onclick="toggleLike({{ comment.id }})">
+                                        <i class="fas fa-heart"></i>
+                                        <span class="like-count">{{ comment.likes_count }}</span>
+                                    </button>
+                                    <button class="btn btn-link btn-sm text-decoration-none" onclick="showReplyForm({{ comment.id }})">
+                                        <i class="fas fa-reply"></i> Reply
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="comment-content">
+                                {{ comment.content|linebreaks }}
+                            </div>
+
+                            <!-- Reply Form (hidden by default) -->
+                            <div class="reply-form" id="replyForm{{ comment.id }}" style="display: none;">
+                                <form class="reply-form-submit">
+                                    {% csrf_token %}
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" placeholder="Write a reply..."
+                                               maxlength="500" required>
+                                        <button class="btn btn-outline-primary" type="submit">Reply</button>
+                                        <button class="btn btn-outline-secondary" type="button"
+                                                onclick="hideReplyForm({{ comment.id }})">Cancel</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Replies -->
+                            {% if comment.replies.exists %}
+                                <div class="replies mt-3">
+                                    {% for reply in comment.replies.all %}
+                                        <div class="comment-card" style="margin-bottom: 10px; padding: 10px;">
+                                            <div class="comment-header">
+                                                <div>
+                                                    <strong>{{ reply.user.username }}</strong>
+                                                    <small class="text-muted ms-2">{{ reply.created_at|timesince }} ago</small>
+                                                </div>
+                                            </div>
+                                            <div class="comment-content">
+                                                {{ reply.content|linebreaks }}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% empty %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                            <h5>No comments yet</h5>
+                            <p class="text-muted">Be the first to share your thoughts about this book!</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // WebSocket connections
+        const bookId = {{ book.pk }};
+        const commentSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/comments/' + bookId + '/'
+        );
+
+        const notificationSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/notifications/'
+        );
+
+        // Handle comment updates via WebSocket
+        commentSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.type === 'comment_update') {
+                handleCommentUpdate(data);
+            }
+        };
+
+        // Handle notifications
+        notificationSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.type === 'notification') {
+                showNotification(data.notification);
+            }
+        };
+
+        // Add comment
+        document.getElementById('commentForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const content = document.getElementById('commentContent').value.trim();
+            if (!content) return;
+
+            const submitBtn = document.getElementById('submitComment');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Posting...';
+
+            try {
+                // Send via WebSocket
+                commentSocket.send(JSON.stringify({
+                    'action': 'new_comment',
+                    'content': content
+                }));
+
+                document.getElementById('commentContent').value = '';
+            } catch (error) {
+                alert('Network error. Please try again.');
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Post Comment';
+        });
+
+        // Toggle like
+        async function toggleLike(commentId) {
+            try {
+                commentSocket.send(JSON.stringify({
+                    'action': 'like_comment',
+                    'comment_id': commentId
+                }));
+            } catch (error) {
+                alert('Error updating like. Please try again.');
+            }
+        }
+
+        // Show/hide reply form
+        function showReplyForm(commentId) {
+            document.getElementById(`replyForm${commentId}`).style.display = 'block';
+        }
+
+        function hideReplyForm(commentId) {
+            document.getElementById(`replyForm${commentId}`).style.display = 'none';
+        }
+
+        // Handle reply submission
+        document.querySelectorAll('.reply-form-submit').forEach(form => {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const commentId = this.closest('.comment-card').dataset.commentId;
+                const input = this.querySelector('input');
+                const content = input.value.trim();
+                if (!content) return;
+
+                try {
+                    commentSocket.send(JSON.stringify({
+                        'action': 'new_reply',
+                        'comment_id': commentId,
+                        'content': content
+                    }));
+
+                    input.value = '';
+                    hideReplyForm(commentId);
+                } catch (error) {
+                    alert('Network error. Please try again.');
+                }
+            });
+        });
+
+        // Handle real-time comment updates
+        function handleCommentUpdate(data) {
+            if (data.action === 'new_comment') {
+                addCommentToUI(data.comment);
+            } else if (data.action === 'like_update') {
+                updateLikeUI(data.like_data);
+            } else if (data.action === 'new_reply') {
+                addReplyToUI(data.reply);
+            }
+        }
+
+        function addCommentToUI(comment) {
+            const commentsSection = document.getElementById('commentsSection');
+            const commentDiv = document.createElement('div');
+            commentDiv.className = 'comment-card';
+            commentDiv.setAttribute('data-comment-id', comment.id);
+
+            commentDiv.innerHTML = `
+                <div class="comment-header">
+                    <div>
+                        <strong>${comment.user}</strong>
+                        <small class="text-muted ms-2">just now</small>
+                    </div>
+                    <div class="comment-actions">
+                        <button class="like-btn" onclick="toggleLike(${comment.id})">
+                            <i class="fas fa-heart"></i>
+                            <span class="like-count">${comment.likes_count}</span>
+                        </button>
+                        <button class="btn btn-link btn-sm text-decoration-none" onclick="showReplyForm(${comment.id})">
+                            <i class="fas fa-reply"></i> Reply
+                        </button>
+                    </div>
+                </div>
+                <div class="comment-content">
+                    ${comment.content}
+                </div>
+
+                <!-- Reply Form (hidden by default) -->
+                <div class="reply-form" id="replyForm${comment.id}" style="display: none;">
+                    <form class="reply-form-submit">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Write a reply..." maxlength="500" required>
+                            <button class="btn btn-outline-primary" type="submit">Reply</button>
+                            <button class="btn btn-outline-secondary" type="button" onclick="hideReplyForm(${comment.id})">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+
+            // Insert at the top
+            commentsSection.insertBefore(commentDiv, commentsSection.firstChild);
+
+            // Re-attach event listeners
+            attachReplyListeners();
+        }
+
+        function updateLikeUI(likeData) {
+            const likeBtn = document.querySelector(`[data-comment-id="${likeData.comment_id}"] .like-btn`);
+            const likeCount = likeBtn.querySelector('.like-count');
+
+            if (likeData.liked) {
+                likeBtn.classList.add('liked');
+            } else {
+                likeBtn.classList.remove('liked');
+            }
+            likeCount.textContent = likeData.likes_count;
+        }
+
+        function addReplyToUI(reply) {
+            const commentCard = document.querySelector(`[data-comment-id="${reply.comment_id}"]`);
+            let repliesDiv = commentCard.querySelector('.replies');
+
+            if (!repliesDiv) {
+                repliesDiv = document.createElement('div');
+                repliesDiv.className = 'replies mt-3';
+                commentCard.appendChild(repliesDiv);
+            }
+
+            const replyDiv = document.createElement('div');
+            replyDiv.className = 'comment-card';
+            replyDiv.style.marginBottom = '10px';
+            replyDiv.style.padding = '10px';
+
+            replyDiv.innerHTML = `
+                <div class="comment-header">
+                    <div>
+                        <strong>${reply.user}</strong>
+                        <small class="text-muted ms-2">just now</small>
+                    </div>
+                </div>
+                <div class="comment-content">
+                    ${reply.content}
+                </div>
+            `;
+
+            repliesDiv.appendChild(replyDiv);
+        }
+
+        function attachReplyListeners() {
+            document.querySelectorAll('.reply-form-submit').forEach(form => {
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const commentId = this.closest('.comment-card').dataset.commentId;
+                    const input = this.querySelector('input');
+                    const content = input.value.trim();
+                    if (!content) return;
+
+                    try {
+                        commentSocket.send(JSON.stringify({
+                            'action': 'new_reply',
+                            'comment_id': commentId,
+                            'content': content
+                        }));
+
+                        input.value = '';
+                        hideReplyForm(commentId);
+                    } catch (error) {
+                        alert('Network error. Please try again.');
+                    }
+                });
+            });
+        }
+
+        function showNotification(notification) {
+            // Create notification element
+            const notificationDiv = document.createElement('div');
+            notificationDiv.className = 'alert alert-info alert-dismissible fade show position-fixed';
+            notificationDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notificationDiv.innerHTML = `
+                <strong>${notification.title}</strong><br>
+                ${notification.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+
+            document.body.appendChild(notificationDiv);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notificationDiv.parentNode) {
+                    notificationDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Initialize reply listeners on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            attachReplyListeners();
+        });
+    </script>
+</body>
+</html>
